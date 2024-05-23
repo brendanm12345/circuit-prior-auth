@@ -1,0 +1,14 @@
+1. Go to the link: [https://www.anthem.com/ca/ms/pharmacyinformation/priorauth.html](https://www.anthem.com/ca/ms/pharmacyinformation/priorauth.html). 
+2. Navigate to the essential 3-tier list. 
+3. Type "${DRUG_NAME}" in the search input, wait for 0.5 seconds, then try to click the search button, if it still doesn’t show new content, wait another 3 seconds
+4. Click search button again after waiting for 2 seconds
+
+5. Look for the HTML `<a>` tags that include the `drugNameClicked` JavaScript function. Identify the `drugBrandListBaseKey` and `drugId` parameters from these tags. The function call will look something like this: ```html <a onclick="return drugNameClicked('${DRUG_NAME}+(0.25+or+0.5+mg%2fdose)+subcutaneous+solution+pen-injector+2+mg%2f3ml', false, '221271');" .. .> 
+6. Extract the drugBrandListBaseKey and drugId parameters from each of these tags. Use these parameters to construct the URLs as shown in the example below:
+Example
+If you find the following HTML <a> tag:
+html
+
+<a onclick="return drugNameClicked('${DRUG_NAME}+(0.25+or+0.5+mg%2fdose)+subcutaneous+solution+pen-injector+2+mg%2f3ml', false, '221271');" ...>
+* Drug Name and Dosage: ${DRUG_NAME}+(0.25+or+0.5+mg%2fdose)+subcutaneous+solution+pen-injector+2+mg%2f3ml
+* Drug ID: 221271
