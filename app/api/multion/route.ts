@@ -3,6 +3,12 @@ import { z } from "zod";
 import { promises as fs } from 'fs';
 import { join } from 'path';
 
+import { MultiOnClient } from "multion"
+const multion = new MultiOnClient({
+    apiKey: process.env.MULTION_API_KEY,
+});
+
+
 const requestBodySchema = z.object({
     insurance_provider: z.enum(["anthem", "aetna"]),
     insurance_plan: z.string(),
@@ -11,6 +17,7 @@ const requestBodySchema = z.object({
 
 export async function POST(request: Request) {
     const body = await request.json();
+    console.log(body);
     const parseResult = requestBodySchema.safeParse(body);
 
     if (!parseResult.success) {
@@ -37,7 +44,13 @@ const readFile = async (insuranceProvider: "anthem" | "aetna") => {
 const handleAnthem = async (drugName: string) => {
     let anthemContent = await readFile("anthem");
     anthemContent = anthemContent.replace("${DRUG_NAME}", drugName);
-    return anthemContent;
+
+    const browse = await multion.browse({
+        cmd: anthemContent,
+        url: "https://www.anthem.com/ca/ms/pharmacyinformation/priorauth.html",
+    });
+
+    return browse;
 }
 
 const handleAetna = async (drugName: string) => {

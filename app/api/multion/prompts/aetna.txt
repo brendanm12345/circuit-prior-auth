@@ -1,0 +1,9 @@
+A: Get the Plan-Specific Coverage Details
+1. Navigate to this url https://client.formularynavigator.com/Search.aspx?siteCode=617018878
+2. Search ozempic
+3. Return the links
+
+B: Get the coverage criteria for the drug
+1. Navigate to this url https://www.aetna.com/health-care-professionals/clinical-policy-bulletins/pharmacy-clinical-policy-bulletins/pharmacy-clinical-policy-bulletins-search-results.html?YearSelect=2024&query=[insert drug name]
+2. Click on the first result
+3. Return the link to that page
