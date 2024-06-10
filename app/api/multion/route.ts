@@ -49,6 +49,7 @@ const handleAnthem = async (drugName: string) => {
         cmd: anthemContent,
         url: "https://www.anthem.com/ca/ms/pharmacyinformation/priorauth.html",
     });
+    console.log("BROWSE", browse)
 
     return browse;
 }

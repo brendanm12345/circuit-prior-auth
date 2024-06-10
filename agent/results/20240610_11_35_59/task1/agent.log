@@ -1,0 +1,9 @@
+INFO - ########## TASK1 ##########
+INFO - Iter: 0
+INFO - Calling gpt4v API...
+INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO - Prompt Tokens: 1859; Completion Tokens: 71
+INFO - Accumulate Prompt Tokens: 1859; Accumulate Completion Tokens: 71
+INFO - API call complete...
+INFO - Num of interactive elements: 18
+ERROR - Error in WebSocket communication: cannot access local variable 'info' where it is not associated with a value

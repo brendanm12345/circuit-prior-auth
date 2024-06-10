@@ -3,14 +3,18 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 export default function Home() {
   const [response, setResponse] = useState<any>(null);
   const [provider, setProvider] = useState('');
   const [plan, setPlan] = useState('');
   const [drug, setDrug] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleSearch = async () => {
+    setLoading(true);
+    setResponse(null);
     try {
       // const res = await fetch('/api/multion', {
       //   method: 'POST',
@@ -27,13 +31,14 @@ export default function Home() {
       console.error('Error fetching data:', error);
       setResponse('An error occurred while fetching data.');
     }
+    setLoading(false);
   };
 
   return (
     <main className="flex flex-col w-full items-center pt-8">
       <div className="w-[550px] flex flex-col gap-4 mb-12">
         <h1 className='text-3xl'>
-          Get Prior Authorization Criteria
+          Get Drug Coverage Criteria
         </h1>
         <div className="flex flex-col gap-2">
           <Label className='text-lg font-medium'>Insurance Provider</Label>
@@ -50,7 +55,7 @@ export default function Home() {
         <Button onClick={handleSearch}>
           Search
         </Button>
-        {response && (
+        {(response && !loading) ? (
           <div className="flex flex-col gap-3">
             <div className="flex flex-row gap-2 items-center">
               <div className="border-1 border-b border-black w-full" />
@@ -72,7 +77,9 @@ export default function Home() {
               )}
             </div>
           </div>
-        )}
+        ) : loading ? (
+          <LoadingSpinner />
+        ) : null}
       </div>
     </main>
   );

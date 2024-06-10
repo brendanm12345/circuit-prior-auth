@@ -1,0 +1,57 @@
+[
+  {
+    "role": "system",
+    "content": "Imagine you are a robot browsing the web, just like humans. Now you need to complete a task. In each iteration, you will receive an Observation that includes a screenshot of a webpage and some texts. This screenshot will feature Numerical Labels placed in the TOP LEFT corner of each Web Element.\nCarefully analyze the visual information to identify the Numerical Label corresponding to the Web Element that requires interaction, then follow the guidelines and choose one of the following actions:\n1. Click a Web Element.\n2. Delete existing content in a textbox and then type content. \n3. Scroll up or down. Multiple scrolls are allowed to browse the webpage. Pay attention!! The default scroll is the whole window. If the scroll widget is located in a certain area of the webpage, then you have to specify a Web Element in that area. I would hover the mouse there and then scroll.\n4. Wait. Typically used to wait for unfinished webpage processes, with a duration of 5 seconds.\n5. Go back, returning to the previous webpage.\n6. Google, directly jump to the Google search page. When you can't find information in some websites, try starting over with Google.\n7. Answer. This action should only be chosen when all questions in the task have been solved.\n\nCorrespondingly, Action should STRICTLY follow the format:\n- Click [Numerical_Label]\n- Type [Numerical_Label]; [Content]\n- Scroll [Numerical_Label or WINDOW]; [up or down]\n- Wait\n- GoBack\n- Google\n- ANSWER; [content]\n\nKey Guidelines You MUST follow:\n* Action guidelines *\n1) To input text, NO need to click textbox first, directly type content. After typing, the system automatically hits `ENTER` key. Sometimes you should click the search button to apply search filters. Try to use simple language when searching.  \n2) You must Distinguish between textbox and search button, don't type content into the button! If no textbox is found, you may need to click the search button first before the textbox is displayed. \n3) Execute only one action per iteration. \n4) STRICTLY Avoid repeating the same action if the webpage remains unchanged. You may have selected the wrong web element or numerical label. Continuous use of the Wait is also NOT allowed.\n5) When a complex Task involves multiple questions or steps, select \"ANSWER\" only at the very end, after addressing all of these questions (steps). Flexibly combine your own abilities with the information in the web page. Double check the formatting requirements in the task when ANSWER. \n* Web Browsing Guidelines *\n1) Don't interact with useless web elements like Login, Sign-in, donation that appear in Webpages. Pay attention to Key Web Elements like search textbox and menu.\n2) Vsit video websites like YouTube is allowed BUT you can't play videos. Clicking to download PDF is allowed and will be analyzed by the Assistant API.\n3) Focus on the numerical labels in the TOP LEFT corner of each rectangle (element). Ensure you don't mix them up with other numbers (e.g. Calendar) on the page.\n4) Focus on the date in task, you must look for results that match the date. It may be necessary to find the correct year, month and day at calendar.\n5) Pay attention to the filter and sort functions on the page, which, combined with scroll, can help you solve conditions like 'highest', 'cheapest', 'lowest', 'earliest', etc. Try your best to find the answer that best fits the task.\n\nYour reply should strictly follow the format:\nThought: {Your brief thoughts (briefly summarize the info that will help ANSWER)}\nAction: {One Action format you choose}\n\nThen the User will provide:\nObservation: {A labeled screenshot Given by User}"
+  },
+  {
+    "role": "user",
+    "content": "Now given a task: Navigate to example.com  Please interact with https://www.example.com and get the answer.Observation: A screenshot and some texts. (Omitted in context.)"
+  },
+  {
+    "role": "assistant",
+    "content": "Thought: The screenshot shows the homepage of example.com with a brief explanation of the domain's purpose. There is a link labeled \"More information...\" that presumably leads to further details about the domain or its use cases. Since the task is to navigate on example.com, clicking this link would be the next logical step to gather more information as instructed.\n\nAction: Click [0]"
+  },
+  {
+    "role": "user",
+    "content": "Observation: A screenshot and some texts. (Omitted in context.)"
+  },
+  {
+    "role": "assistant",
+    "content": "Thought: The screenshot shows a webpage from example.com with navigation tabs at the top and informational text below. The text refers to two RFC documents (RFC 2606 and RFC 6761), explaining the purpose of example domains and indicating they are not available for registration. The \"Further Reading\" section suggests additional resources, with a link to \"IANA-managed Reserved Domains\" which could provide more details, aligned with the task of navigating the website to get information.\n\nAction: Click [7]"
+  },
+  {
+    "role": "user",
+    "content": "Observation: A screenshot and some texts. (Omitted in context.)"
+  },
+  {
+    "role": "assistant",
+    "content": "Thought: The screenshot shows a section of a webpage with the title \"IANA-managed Reserved Domains\". It details that certain domains are set aside for specific technical purposes and policy or technical examples. There are several hyperlinked texts \u2014 specifically \"RFC 2606\", \"RFC 6761\", \"ICANN\", and \"IDN Evaluation\". Based on the provided tag names and the role of the webpage in providing information, it would be appropriate to select one of these links to obtain further details. Since the task is to interact with the website and \"RFC 2606\" and \"RFC 6761\" are mentioned as the documents describing reserved domains, clicking on one of these would likely provide the most relevant information.\n\nAction: Click [5]"
+  },
+  {
+    "role": "user",
+    "content": "Observation: A screenshot and some texts. (Omitted in context.)"
+  },
+  {
+    "role": "assistant",
+    "content": "Thought: The screenshot shows an RFC document, specifically RFC 6761, which discusses reserved top-level DNS names. The numbers [9]-[22] correspond to the sections in the table of contents of the document. There are links at the top of the page labeled \"RFC Home\", \"TEXT\", \"PDF\", \"HTML\", \"Tracker\", \"IPR\", \"Errata\", and \"Info page\". If the task is to navigate this document or to obtain specific information from it, since the screenshot shows the \"Introduction\" section as being labeled with [9], clicking this might take me to the detailed content of the introduction.\n\nAction: Click [9]"
+  },
+  {
+    "role": "user",
+    "content": [
+      {
+        "type": "text",
+        "text": "Observation: please analyze the attached screenshot and give the Thought and Action. I've provided the tag name of each element and the text it contains (if text exists). Note that <textarea> or <input> may be textbox, but not exactly. Please focus more on the screenshot and then refer to the textual information.\n[0]: \"3\";\t[1]: \"RFC 2606\";"
+      },
+      {
+        "type": "image_url",
+        "image_url": {
+          "url": "data:image/png;base64,{b64_img}"
+        }
+      }
+    ]
+  },
+  {
+    "role": "assistant",
+    "content": "Thought: The screenshot shows a section of RFC 2606, detailing reserved top-level DNS names such as \".test,\" \".example,\" \".invalid,\" and \".localhost.\" It also mentions \"Reserved Example Second Level Domain Names\" under which \"example.com\" and \"example.net\" are listed. The text outlines the purpose of these reserved domains, and numerical labels [0] and [1] indicate interactive elements on the page. Label [0] corresponds to a section within the document that seems to be highlighted or selected, while label [1] highlights the title \"RFC 2606\" possibly as a navigational point or reference.\n\nAction: Click [1]"
+  }
+]

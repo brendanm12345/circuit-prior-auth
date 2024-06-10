@@ -1,13 +1,13 @@
-1. Navigate to the essential 3-tier list. 
-2. Type "${DRUG_NAME}" in the search input, wait for 0.5 seconds, then try to click the search button, if it still doesn’t show new content, wait another 3 seconds
-3. Click search button again after waiting for 2 seconds if there's no new content, CLICK THE SEARCH BUTTON
+navigate to [https://www.anthem.com/ca/ms/pharmacyinformation/priorauth.html]
 
-4. Look for the HTML `<a>` tags that include the `drugNameClicked` JavaScript function. Identify the `drugBrandListBaseKey` and `drugId` parameters from these tags. The function call will look something like this: ```html <a onclick="return drugNameClicked('${DRUG_NAME}+(0.25+or+0.5+mg%2fdose)+subcutaneous+solution+pen-injector+2+mg%2f3ml', false, '221271');" .. .> 
-5. Extract the drugBrandListBaseKey and drugId parameters from each of these tags. Use these parameters to construct the URLs as shown in the example below:
-Example
-If you find the following HTML <a> tag:
-html
 
-<a onclick="return drugNameClicked('${DRUG_NAME}+(0.25+or+0.5+mg%2fdose)+subcutaneous+solution+pen-injector+2+mg%2f3ml', false, '221271');" ...>
-* Drug Name and Dosage: ${DRUG_NAME}+(0.25+or+0.5+mg%2fdose)+subcutaneous+solution+pen-injector+2+mg%2f3ml
-* Drug ID: 221271
+1. Navigate to the essential 3-tier list.
+
+2. Type ${DRUG_NAME} in the search input, wait for 0.5 seconds, then try to click the search button, if it still doesn’t show new content, wait another 3 seconds
+
+3. Click search button again after waiting for 2 seconds if there's no new content, CLICK THE SEARCH BUTTON. If it says search term not found, make sure you click search button again
+
+
+Then, WAIT AGAIN AND TRY TO CLICK THE SEARCH BUTTON, do not try to scroll if theres no new information
+
+Then open the top link and copy the url and return it
