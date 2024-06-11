@@ -1,3 +1,4 @@
+# RUN: python3 client.py
 import asyncio
 import websockets
 import json
@@ -8,17 +9,11 @@ async def test_browser_agent():
     async with websockets.connect(uri) as websocket:
         # Define a simple task
         task = {
-            "action": "run_task",
-            "tasks": [
-                {
-                    "id": "1",
-                    "web_name": "Test Task",
-                    "ques": "Navigate to yahoo finance and find the current price of AAPL.",
-                    "web": "https://www.google.com",
-                }
-            ]
+            "id": "1",
+            "web_name": "Test Task",
+            "ques": "Navigate to example.com",
+            "web": "https://www.example.com"
         }
-
         # Send the task
         await websocket.send(json.dumps(task))
 

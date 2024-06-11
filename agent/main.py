@@ -1,3 +1,6 @@
+# RUN: uvicorn main:app --reload
+import asyncio
+from fastapi import WebSocket
 from fastapi import FastAPI, Request, WebSocket
 from typing import List
 from openai import OpenAI
@@ -40,38 +43,18 @@ app = FastAPI()
 
 
 @app.websocket("/ws/agent")
+# i need this endpoint to be able to send web sockets messages to the client frequiently while the agent completes actions NOT JUST ALL AT ONCE ONCE THE WEB DRIVER QUITS
 async def websocket_agent(websocket: WebSocket):
     await websocket.accept()  # Accept the WebSocket connection
     try:
         while True:
-            # Wait for a task from the client
-            data = await websocket.receive_json()
-            if 'action' in data and data['action'] == 'run_task':
-                response = await run_browser_agent(websocket, data['tasks'])
-                await websocket.send_json({"status": "completed", "result": response})
-            elif 'action' in data and data['action'] == 'close':
-                # Handle client-initiated close
-                await websocket.close()
-                break
+            task = await websocket.receive_json()
+            print("Received task:", task)
+            # Run browser agent in the background, allowing the WebSocket to handle other messages
+            asyncio.create_task(run_browser_agent(websocket, task))
     except Exception as e:
         logging.error(f"Error in WebSocket communication: {str(e)}")
         await websocket.send_json({"status": "error", "message": str(e)})
     finally:
-        # Ensure WebSocket is closed properly
-        await websocket.close()
-
-
-# @app.websocket("/ws/agent")
-# async def websocket_agent(websocket: WebSocket):
-#     await websocket.accept()
-#     try:
-#         while True:
-#             data = await websocket.receive_json()
-#             # Process data here, for example:
-#             await websocket.send_text(f"Echo: {data}")
-#     except Exception as e:
-#         logging.error(f"Error in WebSocket communication: {e}")
-#         await websocket.send_text(f"Error: {str(e)}")
-#     finally:
-#         await websocket.close()
-#         logging.info("WebSocket connection closed")
+        if not websocket.client_state.value == "DISCONNECTED":
+            await websocket.close()
