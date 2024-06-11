@@ -1,0 +1,12 @@
+INFO - ########## TASK1 ##########
+INFO - Iter: 0
+INFO - Calling gpt4v API...
+INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO - Prompt Tokens: 1761; Completion Tokens: 50
+INFO - Accumulate Prompt Tokens: 1761; Accumulate Completion Tokens: 50
+INFO - API call complete...
+INFO - Num of interactive elements: 17
+WARNING - Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('<urllib3.connection.HTTPConnection object at 0x110520d70>: Failed to establish a new connection: [Errno 61] Connection refused')': /session/0ea725b8ab7fd4b2cdc45cccfa4d25ef/execute/sync
+WARNING - Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('<urllib3.connection.HTTPConnection object at 0x11054f020>: Failed to establish a new connection: [Errno 61] Connection refused')': /session/0ea725b8ab7fd4b2cdc45cccfa4d25ef/execute/sync
+WARNING - Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError('<urllib3.connection.HTTPConnection object at 0x11054f680>: Failed to establish a new connection: [Errno 61] Connection refused')': /session/0ea725b8ab7fd4b2cdc45cccfa4d25ef/execute/sync
+ERROR - Error in WebSocket communication: (1000, None)

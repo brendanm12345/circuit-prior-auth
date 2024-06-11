@@ -11,8 +11,8 @@ async def test_browser_agent():
         task = {
             "id": "1",
             "web_name": "Test Task",
-            "ques": "Navigate to example.com",
-            "web": "https://www.example.com"
+            "ques": "Find the valuation of NVIDIA on Yahoo Finance.",
+            "web": "https://www.google.com",
         }
         # Send the task
         await websocket.send(json.dumps(task))

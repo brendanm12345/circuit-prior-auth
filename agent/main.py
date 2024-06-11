@@ -1,34 +1,26 @@
 # RUN: uvicorn main:app --reload
-import random
-from pydantic import BaseModel, Field
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 from fastapi import FastAPI, Request, WebSocket
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
-from concurrent.futures import ThreadPoolExecutor
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.action_chains import ActionChains
+from prompts import SYSTEM_PROMPT
+from openai import OpenAI
+from fastapi import WebSocket
+from utils import get_web_element_rect, encode_image, extract_information, print_message, \
+    get_pdf_retrieval_ans_from_assistant, clip_message_and_obs, get_current_url
+import sys
 import asyncio
 import platform
-import argparse
 import time
 import json
 import re
 import os
 import shutil
 import logging
-
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.common.action_chains import ActionChains
-
-from prompts import SYSTEM_PROMPT
-from openai import OpenAI
-from fastapi import WebSocket
-from utils import get_web_element_rect, encode_image, extract_information, print_message, \
-    get_pdf_retrieval_ans_from_assistant, clip_message_and_obs, get_current_url
-
-import sys
 print(sys.executable)
 
 
@@ -269,7 +261,7 @@ def exec_action_scroll(info, web_eles, driver_task, window_height):
 async def run_browser_agent(
         websocket: WebSocket,
         task,
-        headless=True,
+        headless=False,
         force_device_scale=False,
         window_width=1024,
         window_height=768,
@@ -299,17 +291,17 @@ async def run_browser_agent(
 
         print("Running task")
         await websocket.send_json({"status": "starting", "details": f"Starting task {task['id']}"})
-        driver_task = webdriver.Chrome(options=options)
-        driver_task.set_window_size(window_width, window_height)
-        driver_task.get(task['web'])
+        driver = webdriver.Chrome(options=options)
+        driver.set_window_size(window_width, window_height)
+        driver.get(task['web'])
         try:
-            driver_task.find_element(By.TAG_NAME, 'body').click()
+            driver.find_element(By.TAG_NAME, 'body').click()
         except:
             pass
         # prevent space from scrolling the page
-        driver_task.execute_script(
+        driver.execute_script(
             """window.onkeydown = function(e) {if(e.keyCode == 32 && e.target.type != 'text' && e.target.type != 'textarea') {e.preventDefault();}};""")
-        time.sleep(5)
+        await asyncio.sleep(5)
         print("Completed initial actions")
         await websocket.send_json({"status": "action_completed", "details": "Initial actions completed"})
 
@@ -331,251 +323,182 @@ async def run_browser_agent(
         init_msg = init_msg.replace('https://www.example.com', task['web'])
         init_msg = init_msg + obs_prompt
 
-        time.sleep(5)
+        await asyncio.sleep(5)
 
         it, accumulate_prompt_token, accumulate_completion_token = 0, 0, 0
 
-        # while it < max_iter:
-        #     logging.info(f'Iter: {it}')
-        #     it += 1
-        #     if not fail_obs:
-        #         # try to make bounding boxes
-        #         try:
-        #             rects, web_eles, web_eles_text = get_web_element_rect(
-        #                 driver_task, fix_color=fix_box_color)
-        #         except Exception as e:
-        #             logging.error('Driver error when adding set-of-mark.')
-        #             logging.error(e)
-        #             break
+        while it < max_iter:
+            logging.info(f'Iter: {it}')
+            it += 1
+            if not fail_obs:
+                # try to make bounding boxes
+                try:
+                    rects, web_eles, web_eles_text = get_web_element_rect(
+                        driver, fix_color=fix_box_color)
+                except Exception as e:
+                    logging.error('Driver error when adding set-of-mark.')
+                    logging.error(e)
+                    break
 
-        #         # take screenshot
-        #         img_path = os.path.join(
-        #             task_dir, 'screenshot{}.png'.format(it))
-        #         driver_task.save_screenshot(img_path)
-        #         b64_img = encode_image(img_path)
+                print("Drew bounding boxes")
+                await websocket.send_json({"status": "action_completed", "details": "Drew bounding boxes"})
+                await asyncio.sleep(.2)
 
-        #         # format msg
-        #         curr_msg = format_msg(
-        #             it, init_msg, pdf_obs, warn_obs, b64_img, web_eles_text)
-        #         messages.append(curr_msg)
-        #     else:
-        #         curr_msg = {
-        #             'role': 'user',
-        #             'content': fail_obs
-        #         }
-        #         messages.append(curr_msg)
+                # take screenshot
+                img_path = os.path.join(
+                    task_dir, 'screenshot{}.png'.format(it))
+                driver.save_screenshot(img_path)
+                b64_img = encode_image(img_path)
 
-        #     # Clip messages, too many attached images may cause confusion
-        #     messages = clip_message_and_obs(
-        #         messages, max_attached_imgs)
+                # format msg
+                curr_msg = format_msg(
+                    it, init_msg, pdf_obs, warn_obs, b64_img, web_eles_text)
+                messages.append(curr_msg)
+            else:
+                curr_msg = {
+                    'role': 'user',
+                    'content': fail_obs
+                }
+                messages.append(curr_msg)
 
-        #     # Call GPT-4v API
-        #     prompt_tokens, completion_tokens, gpt_call_error, openai_response = call_gpt4v_api(
-        #         client, messages, api_model, seed)
-        #     if gpt_call_error:
-        #         break
-        #     else:
-        #         accumulate_prompt_token += prompt_tokens
-        #         accumulate_completion_token += completion_tokens
-        #         logging.info(
-        #             f'Accumulate Prompt Tokens: {accumulate_prompt_token}; Accumulate Completion Tokens: {accumulate_completion_token}')
-        #         logging.info('API call complete...')
-        #     gpt_4v_res = openai_response.choices[0].message.content
-        #     messages.append({'role': 'assistant', 'content': gpt_4v_res})
+            # Clip messages, too many attached images may cause confusion
+            messages = clip_message_and_obs(
+                messages, max_attached_imgs)
 
-        #     # remove the rects on the website
-        #     if rects:
-        #         logging.info(f"Num of interactive elements: {len(rects)}")
-        #         for rect_ele in rects:
-        #             driver_task.execute_script(
-        #                 "arguments[0].remove()", rect_ele)
-        #         rects = []
+            # Call GPT-4v API
+            prompt_tokens, completion_tokens, gpt_call_error, openai_response = call_gpt4v_api(
+                client, messages, api_model, seed)
+            if gpt_call_error:
+                break
+            else:
+                accumulate_prompt_token += prompt_tokens
+                accumulate_completion_token += completion_tokens
+                logging.info(
+                    f'Accumulate Prompt Tokens: {accumulate_prompt_token}; Accumulate Completion Tokens: {accumulate_completion_token}')
+                logging.info('API call complete...')
+            gpt_4v_res = openai_response.choices[0].message.content
+            messages.append({'role': 'assistant', 'content': gpt_4v_res})
 
-        #     # extract action info
-        #     try:
-        #         assert 'Thought:' in gpt_4v_res and 'Action:' in gpt_4v_res
-        #     except AssertionError as e:
-        #         logging.error(e)
-        #         fail_obs = "Format ERROR: Both 'Thought' and 'Action' should be included in your reply."
-        #         continue
+            # remove the rects on the website
+            if rects:
+                logging.info(f"Num of interactive elements: {len(rects)}")
+                for rect_ele in rects:
+                    driver.execute_script(
+                        "arguments[0].remove()", rect_ele)
+                rects = []
 
-        #     # bot_thought = re.split(pattern, gpt_4v_res)[1].strip()
-        #     chosen_action = re.split(pattern, gpt_4v_res)[2].strip()
-        #     print(chosen_action)
-        #     action_key, info = extract_information(chosen_action)
-        #     await websocket.send_json({
-        #         "status": "action_update",
-        #         "details": f"Executing {chosen_action} on element {info}"
-        #     })
+            # extract action info
+            try:
+                assert 'Thought:' in gpt_4v_res and 'Action:' in gpt_4v_res
+            except AssertionError as e:
+                logging.error(e)
+                fail_obs = "Format ERROR: Both 'Thought' and 'Action' should be included in your reply."
+                continue
 
-        #     fail_obs, pdf_obs, warn_obs = "", "", ""
-        #     # execute action
-        #     try:
-        #         window_handle_task = driver_task.current_window_handle
-        #         driver_task.switch_to.window(window_handle_task)
+            # bot_thought = re.split(pattern, gpt_4v_res)[1].strip()
+            chosen_action = re.split(pattern, gpt_4v_res)[2].strip()
+            print(chosen_action)
+            action_key, info = extract_information(chosen_action)
+            print(f"Executing {chosen_action} on element {info}")
+            await websocket.send_json({
+                "status": "action_update",
+                "details": f"Executing {chosen_action} on element {info}"
+            })
+            await asyncio.sleep(.2)
 
-        #         if action_key == 'click':
-        #             click_ele_number = int(info[0])
-        #             web_ele = web_eles[click_ele_number]
-        #             ele_tag_name = web_ele.tag_name.lower()
-        #             ele_type = web_ele.get_attribute("type")
-        #             exec_action_click(info, web_ele, driver_task)
+            fail_obs, pdf_obs, warn_obs = "", "", ""
+            # execute action
+            try:
+                window_handle_task = driver.current_window_handle
+                driver.switch_to.window(window_handle_task)
 
-        #             current_files = sorted(os.listdir(download_dir))
-        #             if current_files != download_files:
-        #                 # wait for download finish
-        #                 time.sleep(10)
-        #                 current_files = sorted(os.listdir(download_dir))
+                if action_key == 'click':
+                    click_ele_number = int(info[0])
+                    web_ele = web_eles[click_ele_number]
+                    ele_tag_name = web_ele.tag_name.lower()
+                    ele_type = web_ele.get_attribute("type")
+                    exec_action_click(info, web_ele, driver)
 
-        #                 current_download_file = [
-        #                     pdf_file for pdf_file in current_files if pdf_file not in download_files and pdf_file.endswith('.pdf')]
-        #                 if current_download_file:
-        #                     pdf_file = current_download_file[0]
-        #                     pdf_obs = get_pdf_retrieval_ans_from_assistant(
-        #                         client, os.path.join(download_dir, pdf_file), task['ques'])
-        #                     shutil.copy(os.path.join(
-        #                         download_dir, pdf_file), task_dir)
-        #                     pdf_obs = "You downloaded a PDF file, I ask the Assistant API to answer the task based on the PDF file and get the following response: " + pdf_obs
-        #                 download_files = current_files
+                    current_files = sorted(os.listdir(download_dir))
+                    if current_files != download_files:
+                        # wait for download finish
+                        await asyncio.sleep(10)
+                        current_files = sorted(os.listdir(download_dir))
 
-        #             if ele_tag_name == 'button' and ele_type == 'submit':
-        #                 time.sleep(10)
+                        current_download_file = [
+                            pdf_file for pdf_file in current_files if pdf_file not in download_files and pdf_file.endswith('.pdf')]
+                        if current_download_file:
+                            pdf_file = current_download_file[0]
+                            pdf_obs = get_pdf_retrieval_ans_from_assistant(
+                                client, os.path.join(download_dir, pdf_file), task['ques'])
+                            shutil.copy(os.path.join(
+                                download_dir, pdf_file), task_dir)
+                            pdf_obs = "You downloaded a PDF file, I ask the Assistant API to answer the task based on the PDF file and get the following response: " + pdf_obs
+                        download_files = current_files
 
-        #         elif action_key == 'wait':
-        #             time.sleep(5)
+                    if ele_tag_name == 'button' and ele_type == 'submit':
+                        await asyncio.sleep(10)
 
-        #         elif action_key == 'type':
-        #             type_ele_number = int(info['number'])
-        #             web_ele = web_eles[type_ele_number]
+                elif action_key == 'wait':
+                    await asyncio.sleep(5)
 
-        #             warn_obs = exec_action_type(info, web_ele, driver_task)
-        #             if 'wolfram' in task['web']:
-        #                 time.sleep(5)
+                elif action_key == 'type':
+                    type_ele_number = int(info['number'])
+                    web_ele = web_eles[type_ele_number]
 
-        #         elif action_key == 'scroll':
-        #             exec_action_scroll(
-        #                 info, web_eles, driver_task, window_height)
+                    warn_obs = exec_action_type(info, web_ele, driver)
+                    if 'wolfram' in task['web']:
+                        await asyncio.sleep(5)
 
-        #         elif action_key == 'goback':
-        #             driver_task.back()
-        #             time.sleep(2)
+                elif action_key == 'scroll':
+                    exec_action_scroll(
+                        info, web_eles, driver, window_height)
 
-        #         elif action_key == 'google':
-        #             driver_task.get('https://www.google.com/')
-        #             time.sleep(2)
+                elif action_key == 'goback':
+                    driver.back()
+                    await asyncio.sleep(2)
 
-        #         elif action_key == 'answer':
-        #             logging.info(info['content'])
-        #             logging.info('Finished!')
-        #             break
+                elif action_key == 'google':
+                    driver.get('https://www.google.com/')
+                    await asyncio.sleep(2)
 
-        #         else:
-        #             raise NotImplementedError
-        #         fail_obs = ""
-        #     except Exception as e:
-        #         logging.error('driver error info:')
-        #         logging.error(e)
-        #         await websocket.send_json({
-        #             "status": "error",
-        #             "message": str(e)
-        #         })
-        #         if 'element click intercepted' not in str(e):
-        #             fail_obs = "The action you have chosen cannot be exected. Please double-check if you have selected the wrong Numerical Label or Action or Action format. Then provide the revised Thought and Action."
-        #         else:
-        #             fail_obs = ""
-        #         time.sleep(2)
+                elif action_key == 'answer':
+                    logging.info(info['content'])
+                    logging.info('Finished!')
+                    break
 
-        #     finally:
-        #         print_message(messages, task_dir)
-        #         if print_url:
-        #             final_url = driver_task.current_url
-        #         driver_task.quit()
-        #         logging.info(
-        #             f'Total cost: {accumulate_prompt_token / 1000 * 0.01 + accumulate_completion_token / 1000 * 0.03}')
+                else:
+                    raise NotImplementedError
+                fail_obs = ""
+            except Exception as e:
+                logging.error('driver error info:')
+                logging.error(e)
+                await websocket.send_json({
+                    "status": "error",
+                    "message": str(e)
+                })
+                if 'element click intercepted' not in str(e):
+                    fail_obs = "The action you have chosen cannot be exected. Please double-check if you have selected the wrong Numerical Label or Action or Action format. Then provide the revised Thought and Action."
+                else:
+                    fail_obs = ""
+                await asyncio.sleep(2)
+
+            finally:
+                print_message(messages, task_dir)
+                if print_url:
+                    final_url = driver.current_url
+                driver.quit()
+                logging.info(
+                    f'Total cost: {accumulate_prompt_token / 1000 * 0.01 + accumulate_completion_token / 1000 * 0.03}')
+                await websocket.send_json({
+                    "status": "task_completed",
+                    "details": {
+                        "message": info['content'],
+                        "url": final_url
+                    }
+                })
 
     except Exception as e:
         await websocket.send_json({"status": "error", "message": str(e)})
     finally:
         await websocket.close()
-
-
-# async def run_browser_agent(websocket: WebSocket, tasks):
-#     print('Running tasks...')
-#     print('tasks:', tasks)  # Debugging print
-
-#     try:
-#         for task in tasks:
-#             # Simulate task processing with updates
-#             await asyncio.sleep(1)  # Simulate time-consuming task
-#             await websocket.send_json({"status": "processing", "details": f"Processing task {task['id']}"})
-#             # Simulate actions taken during the task
-#             actions = [0, 7, 5, 9, 1]
-#             for action in actions:
-#                 print(f"Click [{action}]")
-#                 await asyncio.sleep(0.5)  # Simulate action delay
-#                 await websocket.send_json({"status": "action", "details": f"Click [{action}]"})
-
-#         # Send a completion message at the end of all tasks
-#         await websocket.send_json({"status": "completed", "result": "All tasks processed successfully"})
-#     except Exception as e:
-#         await websocket.send_json({"status": "error", "message": str(e)})
-#     finally:
-#         await websocket.close()  # Ensure the connection is closed after all tasks
-
-
-async def perform_action_and_notify(websocket, driver, action_details):
-    loop = asyncio.get_running_loop()
-
-    try:
-        if action_details['type'] == 'check_text':
-            assert action_details['text'] in driver.page_source
-            print(f"Text '{action_details['text']}' found on the page.")
-            await websocket.send_json({"status": "action_completed", "details": f"Text '{action_details['text']}' found on the page."})
-            print("Web socket message sent.")
-            time.sleep(3)
-
-        elif action_details['type'] == 'take_screenshot':
-            driver.save_screenshot(action_details['filename'])
-            print(f"Screenshot taken and saved as '{
-                  action_details['filename']}'.")
-            await websocket.send_json({"status": "action_completed", "details": f"Screenshot taken and saved as '{action_details['filename']}'."})
-            print("Web socket message sent.")
-            time.sleep(3)
-
-        elif action_details['type'] == 'click_link':
-            link = WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable(
-                    (By.PARTIAL_LINK_TEXT, action_details['link_text']))
-            )
-            link.click()
-            print(f"Clicked on link with text: {action_details['link_text']}")
-            await websocket.send_json({"status": "action_completed", "details": f"Clicked on link with text: {action_details['link_text']}"})
-            print("Web socket message sent.")
-            time.sleep(3)
-
-    except Exception as e:
-        await websocket.send_json({"status": "error", "message": str(e)})
-        return
-
-
-async def run_browser_agent(websocket, task):
-    driver = webdriver.Chrome()  # Setup WebDriver
-    driver.get(task['web'])  # Load the page
-
-    # Define actions specific to example.com
-    actions = [
-        {'type': 'check_text', 'text': 'Example Domain'},
-        {'type': 'take_screenshot', 'filename': 'example_com_screenshot.png'},
-        {'type': 'click_link', 'link_text': 'More information...'}
-    ]
-
-    for action in actions:
-        await perform_action_and_notify(websocket, driver, action)
-        print(f"Action completed: {action}")
-
-    driver.quit()
-
-
-# Setup WebSocket and Task
-# Assume websocket is already an established WebSocket connection
-# task is a dictionary containing necessary task details
