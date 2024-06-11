@@ -11,7 +11,7 @@ async def test_browser_agent():
         task = {
             "id": "1",
             "web_name": "Test Task",
-            "ques": "Find the apple market cap on yahoo finance.",
+            "ques": "Find the apple market cap on investor relations site.",
             "web": "https://www.google.com",
         }
         # Send the task

@@ -28,7 +28,6 @@ print(sys.executable)
 
 app = FastAPI()
 client = OpenAI()
-# Adjust the number of workers based on your needs
 executor = ThreadPoolExecutor(max_workers=4)
 
 
@@ -209,66 +208,69 @@ async def exec_action_type(info, web_ele, driver_task):
 
     ele_tag_name = web_ele.tag_name.lower()
     ele_type = web_ele.get_attribute("type")
-    # outer_html = web_ele.get_attribute("outerHTML")
-    if (ele_tag_name != 'input' and ele_tag_name != 'textarea') or (ele_tag_name == 'input' and ele_type not in ['text', 'search', 'password', 'email', 'tel']):
-        warn_obs = f"note: The web element you're trying to type may not be a textbox, and its tag name is <{
-            web_ele.tag_name}>, type is {ele_type}."
+    if (ele_tag_name != 'input' and ele_tag_name != 'textarea') or \
+       (ele_tag_name == 'input' and ele_type not in ['text', 'search', 'password', 'email', 'tel']):
+        warn_obs = f"Note: The web element you're trying to type may not be a textbox. Tag name: <{
+            ele_tag_name}>, type: {ele_type}."
+
     try:
-        # Doesn't always work to delete
-        web_ele.clear()
-        # Another way to delete
+        # Clear the element before typing; involves clicking and sending keys
+        actions = ActionChains(driver_task)
+        actions.click(web_ele)
         if platform.system() == 'Darwin':
-            web_ele.send_keys(Keys.COMMAND + "a")
+            actions.send_keys(Keys.COMMAND + "a")
         else:
-            web_ele.send_keys(Keys.CONTROL + "a")
-        web_ele.send_keys(" ")
-        web_ele.send_keys(Keys.BACKSPACE)
-    except:
-        pass
+            actions.send_keys(Keys.CONTROL + "a")
+        actions.send_keys(Keys.BACKSPACE)
+        await run_in_executor(actions.perform)
 
-    actions = ActionChains(driver_task)
-    actions.click(web_ele).perform()
-    actions.pause(1)
+        # Setting up to type the provided content
+        actions.reset_actions()  # Reset the previous actions
+        actions.send_keys(type_content)
+        actions.send_keys(Keys.ENTER)
+        await run_in_executor(actions.perform)
+    except Exception as e:
+        warn_obs += f" Error during typing action: {str(e)}"
 
-    # prevent space from scrolling the page
-    try:
-        driver_task.execute_script(
-            """window.onkeydown = function(e) {if(e.keyCode == 32 && e.target.type != 'text' && e.target.type != 'textarea' && e.target.type != 'search') {e.preventDefault();}};""")
-    except:
-        pass
+    # Script to prevent space from scrolling the page
+    script_to_prevent_scrolling = """
+    window.onkeydown = function(e) {
+        if (e.keyCode == 32 && e.target.type != 'text' && e.target.type != 'textarea' && e.target.type != 'search') {
+            e.preventDefault();
+        }
+    };"""
+    await run_in_executor(driver_task.execute_script, script_to_prevent_scrolling)
 
-    actions.send_keys(type_content)
-    actions.pause(2)
-
-    actions.send_keys(Keys.ENTER)
-    actions.perform()
-    await asyncio.sleep(10)
-    print("done sleeping type")
+    await asyncio.sleep(10)  # Delays for UI to update, if necessary
+    print("Done sleeping after typing.")
     return warn_obs
 
 
 async def exec_action_scroll(info, web_eles, driver_task, window_height):
     scroll_ele_number = info['number']
     scroll_content = info['content']
+
     if scroll_ele_number == "WINDOW":
-        if scroll_content == 'down':
-            driver_task.execute_script(
-                f"window.scrollBy(0, {window_height*2//3});")
-        else:
-            driver_task.execute_script(
-                f"window.scrollBy(0, {-window_height*2//3});")
+        script = f"window.scrollBy(0, {
+            window_height*2//3 if scroll_content == 'down' else -window_height*2//3});"
+        await run_in_executor(driver_task.execute_script, script)
     else:
         scroll_ele_number = int(scroll_ele_number)
         web_ele = web_eles[scroll_ele_number]
         actions = ActionChains(driver_task)
-        driver_task.execute_script("arguments[0].focus();", web_ele)
+        await run_in_executor(driver_task.execute_script, "arguments[0].focus();", web_ele)
         if scroll_content == 'down':
-            actions.key_down(Keys.ALT).send_keys(
-                Keys.ARROW_DOWN).key_up(Keys.ALT).perform()
+            await run_in_executor(actions.key_down, Keys.ALT)
+            await run_in_executor(actions.send_keys, Keys.ARROW_DOWN)
+            await run_in_executor(actions.key_up, Keys.ALT)
+            await run_in_executor(actions.perform)
         else:
-            actions.key_down(Keys.ALT).send_keys(
-                Keys.ARROW_UP).key_up(Keys.ALT).perform()
-    await asyncio.sleep(3)
+            await run_in_executor(actions.key_down, Keys.ALT)
+            await run_in_executor(actions.send_keys, Keys.ARROW_UP)
+            await run_in_executor(actions.key_up, Keys.ALT)
+            await run_in_executor(actions.perform)
+
+    await asyncio.sleep(3)  # Delays for UI to update, if necessary
 
 
 async def run_browser_agent(
@@ -336,7 +338,7 @@ async def run_browser_agent(
         init_msg = init_msg.replace('https://www.example.com', task['web'])
         init_msg = init_msg + obs_prompt
 
-        await asyncio.sleep(5)
+        await asyncio.sleep(2)
 
         it, accumulate_prompt_token, accumulate_completion_token = 0, 0, 0
 
@@ -352,10 +354,6 @@ async def run_browser_agent(
                     logging.error('Driver error when adding set-of-mark.')
                     logging.error(e)
                     break
-
-                print("Drew bounding boxes")
-                await websocket.send_json({"status": "action_completed", "details": "Drew bounding boxes"})
-                await asyncio.sleep(.2)
 
                 # take screenshot
                 img_path = os.path.join(
@@ -501,7 +499,6 @@ async def run_browser_agent(
         print_message(messages, task_dir)
         if print_url:
             final_url = driver.current_url
-        driver.quit()
         logging.info(
             f'Total cost: {accumulate_prompt_token / 1000 * 0.01 + accumulate_completion_token / 1000 * 0.03}')
         await websocket.send_json({
@@ -514,5 +511,3 @@ async def run_browser_agent(
 
     except Exception as e:
         await websocket.send_json({"status": "error", "message": str(e)})
-    finally:
-        await websocket.close()
