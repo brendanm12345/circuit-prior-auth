@@ -61,17 +61,21 @@ async def root():
 
 @app.websocket("/ws/agent")
 async def websocket_agent(websocket: WebSocket):
-    await websocket.accept()
+    await websocket.accept()  # Accept the WebSocket connection
     try:
         while True:
             task = await websocket.receive_json()
-            # Run the browser agent function asynchronously using an executor
-            await run_in_executor(run_browser_agent, websocket, task)
-    except Exception as e:
-        logging.error(f"WebSocket error: {str(e)}")
+            print("Received task:", task)
+            # Run browser agent in the background, allowing the WebSocket to handle other messages
+            await run_browser_agent(websocket, task)
+    except websockets.exceptions.ConnectionClosedError as e:
+        # Log error and potentially initiate a reconnection
+        print(f"WebSocket closed with error: {e}")
+        logging.error(f"Error in WebSocket communication: {str(e)}")
         await websocket.send_json({"status": "error", "message": str(e)})
     finally:
-        await websocket.close()
+        if not websocket.client_state.value == "DISCONNECTED":
+            await websocket.close()
 
 
 def setup_logger(folder_path):
@@ -192,10 +196,9 @@ async def call_gpt4v_api(openai_client, messages, api_model, seed):
 
 
 async def exec_action_click(info, web_ele, driver_task):
-    loop = asyncio.get_event_loop()
     driver_task.execute_script(
         "arguments[0].setAttribute('target', '_self')", web_ele)
-    await loop.run_in_executor(executor, web_ele.click)
+    await run_in_executor(web_ele.click)
     await asyncio.sleep(3)
     print("done sleeping click")
 
