@@ -1,2 +1,0 @@
-INFO - ########## TASK1 ##########
-ERROR - Error in WebSocket communication: Cannot call "send" once a close message has been sent.
