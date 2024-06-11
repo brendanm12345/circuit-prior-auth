@@ -8,10 +8,6 @@ import numpy as np
 from PIL import Image
 
 
-def get_current_url(browser):
-    return browser.current_url
-
-
 def resize_image(image_path):
     image = Image.open(image_path)
     width, height = image.size

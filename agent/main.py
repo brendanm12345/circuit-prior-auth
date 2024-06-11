@@ -10,8 +10,9 @@ from selenium.webdriver.common.action_chains import ActionChains
 from prompts import SYSTEM_PROMPT
 from openai import OpenAI
 from fastapi import WebSocket
+from concurrent.futures import ThreadPoolExecutor
 from utils import get_web_element_rect, encode_image, extract_information, print_message, \
-    get_pdf_retrieval_ans_from_assistant, clip_message_and_obs, get_current_url
+    get_pdf_retrieval_ans_from_assistant, clip_message_and_obs
 import sys
 import asyncio
 import platform
@@ -21,11 +22,20 @@ import re
 import os
 import shutil
 import logging
+import websockets
 print(sys.executable)
 
 
 app = FastAPI()
 client = OpenAI()
+# Adjust the number of workers based on your needs
+executor = ThreadPoolExecutor(max_workers=4)
+
+
+async def run_in_executor(func, *args):
+    """ Utility function to run blocking tasks in an executor """
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(executor, func, *args)
 
 
 @app.middleware("http")
@@ -50,21 +60,18 @@ async def root():
 
 
 @app.websocket("/ws/agent")
-# i need this endpoint to be able to send web sockets messages to the client frequiently while the agent completes actions NOT JUST ALL AT ONCE ONCE THE WEB DRIVER QUITS
 async def websocket_agent(websocket: WebSocket):
-    await websocket.accept()  # Accept the WebSocket connection
+    await websocket.accept()
     try:
         while True:
             task = await websocket.receive_json()
-            print("Received task:", task)
-            # Run browser agent in the background, allowing the WebSocket to handle other messages
-            asyncio.create_task(run_browser_agent(websocket, task))
+            # Run the browser agent function asynchronously using an executor
+            await run_in_executor(run_browser_agent, websocket, task)
     except Exception as e:
-        logging.error(f"Error in WebSocket communication: {str(e)}")
+        logging.error(f"WebSocket error: {str(e)}")
         await websocket.send_json({"status": "error", "message": str(e)})
     finally:
-        if not websocket.client_state.value == "DISCONNECTED":
-            await websocket.close()
+        await websocket.close()
 
 
 def setup_logger(folder_path):
@@ -185,10 +192,12 @@ async def call_gpt4v_api(openai_client, messages, api_model, seed):
 
 
 async def exec_action_click(info, web_ele, driver_task):
+    loop = asyncio.get_event_loop()
     driver_task.execute_script(
         "arguments[0].setAttribute('target', '_self')", web_ele)
-    web_ele.click()
+    await loop.run_in_executor(executor, web_ele.click)
     await asyncio.sleep(3)
+    print("done sleeping click")
 
 
 async def exec_action_type(info, web_ele, driver_task):
@@ -231,6 +240,7 @@ async def exec_action_type(info, web_ele, driver_task):
     actions.send_keys(Keys.ENTER)
     actions.perform()
     await asyncio.sleep(10)
+    print("done sleeping type")
     return warn_obs
 
 
