@@ -142,7 +142,7 @@ def format_msg(it, init_msg, pdf_obs, warn_obs, web_img_b64, web_text):
         return curr_msg
 
 
-def call_gpt4v_api(openai_client, messages, api_model, seed):
+async def call_gpt4v_api(openai_client, messages, api_model, seed):
     retry_times = 0
     while True:
         try:
@@ -165,10 +165,10 @@ def call_gpt4v_api(openai_client, messages, api_model, seed):
                 f'Error occurred, retrying. Error type: {type(e).__name__}')
 
             if type(e).__name__ == 'RateLimitError':
-                time.sleep(10)
+                await asyncio.sleep(10)
 
             elif type(e).__name__ == 'APIError':
-                time.sleep(15)
+                await asyncio.sleep(15)
 
             elif type(e).__name__ == 'InvalidRequestError':
                 gpt_call_error = True
@@ -184,14 +184,14 @@ def call_gpt4v_api(openai_client, messages, api_model, seed):
             return None, None, True, None
 
 
-def exec_action_click(info, web_ele, driver_task):
+async def exec_action_click(info, web_ele, driver_task):
     driver_task.execute_script(
         "arguments[0].setAttribute('target', '_self')", web_ele)
     web_ele.click()
-    time.sleep(3)
+    await asyncio.sleep(3)
 
 
-def exec_action_type(info, web_ele, driver_task):
+async def exec_action_type(info, web_ele, driver_task):
     warn_obs = ""
     type_content = info['content']
 
@@ -230,11 +230,11 @@ def exec_action_type(info, web_ele, driver_task):
 
     actions.send_keys(Keys.ENTER)
     actions.perform()
-    time.sleep(10)
+    await asyncio.sleep(10)
     return warn_obs
 
 
-def exec_action_scroll(info, web_eles, driver_task, window_height):
+async def exec_action_scroll(info, web_eles, driver_task, window_height):
     scroll_ele_number = info['number']
     scroll_content = info['content']
     if scroll_ele_number == "WINDOW":
@@ -255,7 +255,7 @@ def exec_action_scroll(info, web_eles, driver_task, window_height):
         else:
             actions.key_down(Keys.ALT).send_keys(
                 Keys.ARROW_UP).key_up(Keys.ALT).perform()
-    time.sleep(3)
+    await asyncio.sleep(3)
 
 
 async def run_browser_agent(
@@ -366,7 +366,7 @@ async def run_browser_agent(
                 messages, max_attached_imgs)
 
             # Call GPT-4v API
-            prompt_tokens, completion_tokens, gpt_call_error, openai_response = call_gpt4v_api(
+            prompt_tokens, completion_tokens, gpt_call_error, openai_response = await call_gpt4v_api(
                 client, messages, api_model, seed)
             if gpt_call_error:
                 break
@@ -413,11 +413,13 @@ async def run_browser_agent(
                 driver.switch_to.window(window_handle_task)
 
                 if action_key == 'click':
+                    print(f"Clicking on element {web_ele}")
                     click_ele_number = int(info[0])
                     web_ele = web_eles[click_ele_number]
                     ele_tag_name = web_ele.tag_name.lower()
                     ele_type = web_ele.get_attribute("type")
-                    exec_action_click(info, web_ele, driver)
+                    print(f"Exec clicking on element {web_ele}")
+                    await exec_action_click(info, web_ele, driver)
 
                     current_files = sorted(os.listdir(download_dir))
                     if current_files != download_files:
@@ -446,12 +448,12 @@ async def run_browser_agent(
                     type_ele_number = int(info['number'])
                     web_ele = web_eles[type_ele_number]
 
-                    warn_obs = exec_action_type(info, web_ele, driver)
+                    warn_obs = await exec_action_type(info, web_ele, driver)
                     if 'wolfram' in task['web']:
                         await asyncio.sleep(5)
 
                 elif action_key == 'scroll':
-                    exec_action_scroll(
+                    await exec_action_scroll(
                         info, web_eles, driver, window_height)
 
                 elif action_key == 'goback':
@@ -483,20 +485,19 @@ async def run_browser_agent(
                     fail_obs = ""
                 await asyncio.sleep(2)
 
-            finally:
-                print_message(messages, task_dir)
-                if print_url:
-                    final_url = driver.current_url
-                driver.quit()
-                logging.info(
-                    f'Total cost: {accumulate_prompt_token / 1000 * 0.01 + accumulate_completion_token / 1000 * 0.03}')
-                await websocket.send_json({
-                    "status": "task_completed",
-                    "details": {
-                        "message": info['content'],
-                        "url": final_url
-                    }
-                })
+        print_message(messages, task_dir)
+        if print_url:
+            final_url = driver.current_url
+        driver.quit()
+        logging.info(
+            f'Total cost: {accumulate_prompt_token / 1000 * 0.01 + accumulate_completion_token / 1000 * 0.03}')
+        await websocket.send_json({
+            "status": "task_completed",
+            "details": {
+                "message": info['content'],
+                "url": final_url
+            }
+        })
 
     except Exception as e:
         await websocket.send_json({"status": "error", "message": str(e)})
