@@ -199,7 +199,6 @@ async def exec_action_click(info, web_ele, driver_task):
         "arguments[0].setAttribute('target', '_self')", web_ele)
     await run_in_executor(web_ele.click)
     await asyncio.sleep(3)
-    print("done sleeping click")
 
 
 async def exec_action_type(info, web_ele, driver_task):
@@ -304,7 +303,6 @@ async def run_browser_agent(
         setup_logger(task_dir)
         logging.info(f'########## TASK{task["id"]} ##########')
 
-        print("Running task")
         await websocket.send_json({"status": "starting", "details": f"Starting task {task['id']}"})
         driver = webdriver.Chrome(options=options)
         driver.set_window_size(window_width, window_height)
@@ -316,9 +314,7 @@ async def run_browser_agent(
         # prevent space from scrolling the page
         driver.execute_script(
             """window.onkeydown = function(e) {if(e.keyCode == 32 && e.target.type != 'text' && e.target.type != 'textarea') {e.preventDefault();}};""")
-        await asyncio.sleep(5)
-        print("Completed initial actions")
-        await websocket.send_json({"status": "action_completed", "details": "Initial actions completed"})
+        await asyncio.sleep(2)
 
         # clear download files
         for filename in os.listdir(download_dir):
@@ -329,10 +325,10 @@ async def run_browser_agent(
         download_files = []
 
         fail_obs, pdf_obs, warn_obs = "", "", ""
-        pattern = r'Thought:|Action:|Observation:'
+        pattern = r'Thought:|Action:|Observation:|Description:'
 
         messages = [{'role': 'system', 'content': SYSTEM_PROMPT}]
-        obs_prompt = "Observation: please analyze the attached screenshot and give the Thought and Action. "
+        obs_prompt = "Observation: please analyze the attached screenshot and give the Thought, Action, and Description. "
         init_msg = f"""Now given a task: {
             task['ques']}  Please interact with https://www.example.com and get the answer. \n"""
         init_msg = init_msg.replace('https://www.example.com', task['web'])
@@ -400,20 +396,21 @@ async def run_browser_agent(
 
             # extract action info
             try:
-                assert 'Thought:' in gpt_4v_res and 'Action:' in gpt_4v_res
+                assert 'Thought:' in gpt_4v_res and 'Action:' in gpt_4v_res and 'Description:' in gpt_4v_res
             except AssertionError as e:
                 logging.error(e)
-                fail_obs = "Format ERROR: Both 'Thought' and 'Action' should be included in your reply."
+                fail_obs = "Format ERROR: 'Thought', 'Action' and 'Description' should be included in your reply."
                 continue
 
-            # bot_thought = re.split(pattern, gpt_4v_res)[1].strip()
-            chosen_action = re.split(pattern, gpt_4v_res)[2].strip()
-            print(chosen_action)
+            components = re.split(pattern, gpt_4v_res)
+            bot_thought = components[1].strip()
+            chosen_action = components[2].strip()
+            description = components[3].strip()
             action_key, info = extract_information(chosen_action)
-            print(f"Executing {chosen_action} on element {info}")
+            print(description)
             await websocket.send_json({
                 "status": "action_update",
-                "details": f"Executing {chosen_action} on element {info}"
+                "details": description
             })
             await asyncio.sleep(.2)
 

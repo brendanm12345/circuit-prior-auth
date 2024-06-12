@@ -30,10 +30,14 @@ Key Guidelines You MUST follow:
 3) Focus on the numerical labels in the TOP LEFT corner of each rectangle (element). Ensure you don't mix them up with other numbers (e.g. Calendar) on the page.
 4) Focus on the date in task, you must look for results that match the date. It may be necessary to find the correct year, month and day at calendar.
 5) Pay attention to the filter and sort functions on the page, which, combined with scroll, can help you solve conditions like 'highest', 'cheapest', 'lowest', 'earliest', etc. Try your best to find the answer that best fits the task.
+* Description guidelines *
+1) The description should be no more than 5 words. It should start with a verb like "Click" or "Type".
 
 Your reply should strictly follow the format:
 Thought: {Your brief thoughts (briefly summarize the info that will help ANSWER)}
 Action: {One Action format you choose}
+Description: {A concise description of the action you choose (examples: "Navigating to https://linkedin.com" or "Click on the search bar" or "Type Luke Ferzo" or "Scrolling down")}
+
 
 Then the User will provide:
 Observation: {A labeled screenshot Given by User}"""
