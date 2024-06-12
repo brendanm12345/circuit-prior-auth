@@ -7,53 +7,63 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 
 export default function Home() {
   const [response, setResponse] = useState<any>(null);
-  const [provider, setProvider] = useState('');
-  const [plan, setPlan] = useState('');
-  const [drug, setDrug] = useState('');
+  const [task, setTask] = useState('');
   const [loading, setLoading] = useState(false);
+  const [websocket, setWebSocket] = useState<WebSocket | null>(null);
 
   const handleSearch = async () => {
     setLoading(true);
     setResponse(null);
-    try {
-      // const res = await fetch('/api/multion', {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //   },
-      //   body: JSON.stringify({ insurance_provider: provider, insurance_plan: plan, drug_name: drug }),
-      // });
-      // const data = await res.json();
-      setResponse([
-        { text: 'Based on your insurance provider and plan, here is a link to the the coverage criteria for ozempic', link: 'https://www.aetna.com/products/rxnonmedicare/data/2024/GLP-1_Agonist_Ozempic_PA_with_Limit_Policy_2439-C_UDR_05-2023.html' },
-      ]);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      setResponse('An error occurred while fetching data.');
-    }
-    setLoading(false);
+
+    // Establish WebSocket connection
+    const ws = new WebSocket("ws://localhost:8000/ws/agent");
+    setWebSocket(ws);
+
+    ws.onopen = () => {
+      console.log("WebSocket connection established");
+      const taskMessage = {
+        id: "1",
+        web_name: "Test Task",
+        ques: task,
+        web: "https://www.google.com",
+      };
+      ws.send(JSON.stringify(taskMessage));
+    };
+
+    ws.onmessage = (event) => {
+      const message = JSON.parse(event.data);
+      console.log("Received from server:", message);
+      setResponse(message);
+      setLoading(false);
+    };
+
+    ws.onclose = () => {
+      console.log("WebSocket connection closed");
+    };
+
+    ws.onerror = (error) => {
+      console.error("WebSocket error:", error);
+      setLoading(false);
+    };
+
+    // Cleanup on component unmount
+    return () => {
+      ws.close();
+    };
   };
 
   return (
     <main className="flex flex-col w-full items-center pt-8">
       <div className="w-[550px] flex flex-col gap-4 mb-12">
         <h1 className='text-3xl'>
-          Get Drug Coverage Criteria
+          Healthcare Copilot
         </h1>
         <div className="flex flex-col gap-2">
-          <Label className='text-lg font-medium'>Insurance Provider</Label>
-          <Input value={provider} onChange={(e) => setProvider(e.target.value)} />
-        </div>
-        <div className="flex flex-col gap-2">
-          <Label className='text-lg font-medium'>Insurance Plan</Label>
-          <Input value={plan} onChange={(e) => setPlan(e.target.value)} />
-        </div>
-        <div className="flex flex-col gap-2">
-          <Label className='text-lg font-medium'>Drug Name</Label>
-          <Input value={drug} onChange={(e) => setDrug(e.target.value)} />
+          <Label className='text-lg font-medium'>Task</Label>
+          <Input value={task} onChange={(e) => setTask(e.target.value)} />
         </div>
         <Button onClick={handleSearch}>
-          Search
+          Execute Task
         </Button>
         {(response && !loading) ? (
           <div className="flex flex-col gap-3">
@@ -63,17 +73,18 @@ export default function Home() {
               <div className="border-1 border-b border-black w-full" />
             </div>
             <div className="flex flex-col gap-2">
-              {Array.isArray(response) ? (
-                response.map((item, index) => (
-                  <div key={index} className="p-4 bg-accent rounded-lg">
-                    <p>{item.text}</p>
-                    <a href={item.link} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">
-                      Link to Coverage Criteria
-                    </a>
-                  </div>
-                ))
+              {response.status === 'task_completed' && response.details ? (
+                <div className="p-4 bg-accent rounded-lg">
+                  <p>{response.details.message}</p>
+                  <a href={response.details.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">
+                    {response.details.url}
+                  </a>
+                </div>
               ) : (
-                <p>{response}</p>
+                <div className="p-4 bg-accent rounded-lg">
+                  <p>Status: {response.status}</p>
+                  <p>Details: {response.details}</p>
+                </div>
               )}
             </div>
           </div>
