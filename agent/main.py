@@ -275,7 +275,7 @@ async def exec_action_scroll(info, web_eles, driver_task, window_height):
 async def run_browser_agent(
         websocket: WebSocket,
         task,
-        headless=False,
+        headless=True,
         force_device_scale=False,
         window_width=1024,
         window_height=768,
@@ -303,7 +303,7 @@ async def run_browser_agent(
         setup_logger(task_dir)
         logging.info(f'########## TASK{task["id"]} ##########')
 
-        await websocket.send_json({"status": "starting", "details": f"Starting task {task['id']}"})
+        await websocket.send_json({"status": "starting", "details": f"Opening browser..."})
         driver = webdriver.Chrome(options=options)
         driver.set_window_size(window_width, window_height)
         driver.get(task['web'])

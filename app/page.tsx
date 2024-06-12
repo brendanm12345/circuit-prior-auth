@@ -4,6 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faExternalLinkAlt } from '@fortawesome/free-solid-svg-icons';
 
 export default function Home() {
   const [response, setResponse] = useState<any>(null);
@@ -52,9 +54,28 @@ export default function Home() {
     };
   };
 
+  const handleCancel = () => {
+    if (websocket) {
+      websocket.close();
+      setWebSocket(null);
+      setLoading(false);
+      setResponse({ status: 'cancelled', details: 'Request has been cancelled.' });
+    }
+  };
+
+  const extractHostname = (url: string) => {
+    try {
+      const { hostname } = new URL(url);
+      return "View source at " + hostname.slice(4);
+    } catch (error) {
+      console.error("Invalid URL:", url);
+      return "";
+    }
+  };
+
   return (
     <main className="flex flex-col w-full items-center pt-8">
-      <div className="w-[550px] flex flex-col gap-4 mb-12">
+      <div className="w-[640px] flex flex-col gap-4 mb-12">
         <h1 className='text-3xl'>
           Healthcare Copilot
         </h1>
@@ -74,17 +95,25 @@ export default function Home() {
             </div>
             <div className="flex flex-col gap-2">
               {response.status === 'task_completed' && response.details ? (
-                <div className="p-4 bg-accent rounded-lg">
+                <div className="flex flex-row flex-wrap gap-2 p-4 bg-accent rounded-lg items-center">
                   <p>{response.details.message}</p>
-                  <a href={response.details.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">
-                    {response.details.url}
-                  </a>
+                  <span>
+                    <a href={response.details.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline flex items-center gap-2">
+                      <span>{extractHostname(response.details.url)}</span>
+                      <FontAwesomeIcon icon={faExternalLinkAlt} />
+                    </a>
+                  </span>
                 </div>
               ) : (
-                <div className="p-4 bg-accent rounded-lg">
-                  <p>Status: {response.status}</p>
-                  <p>Details: {response.details}</p>
+                <div className="flex flex-row gap-2">
+                  <div className="px-4 py-2 bg-accent rounded-lg w-full">
+                    <p>{response.details}</p>
+                  </div>
+                  <Button onClick={handleCancel} variant="destructive">
+                    Cancel
+                  </Button>
                 </div>
+
               )}
             </div>
           </div>
